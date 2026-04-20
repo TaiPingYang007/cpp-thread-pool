@@ -1,5 +1,7 @@
 # CMake 构建目录
 /build/
+/build*/
+/cmake-build-*/
 
 # 可执行文件输出目录
 /bin/
@@ -7,5 +9,6 @@
 # 编辑器和系统文件
 /.idea/
 /.vscode/
+/.codex
 *.swp
 .DS_Store

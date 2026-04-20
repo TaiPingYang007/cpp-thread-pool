@@ -13,8 +13,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # 关闭编译器扩展，统一使用标准 C++
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-# 将可执行文件统一输出到 bin 目录
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+# 将可执行文件统一输出到构建目录，避免污染源码目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 # 开启 CTest，方便用一条命令跑自测
 include(CTest)
