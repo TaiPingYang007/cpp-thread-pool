@@ -25,3 +25,4 @@ echo "[3/3] 正在运行自测..."
 ctest --test-dir "$BUILD_DIR" --output-on-failure
 
 echo "构建完成，可执行文件位置：$BUILD_DIR/bin/test_pool"
+
