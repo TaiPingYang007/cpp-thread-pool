@@ -9,7 +9,6 @@
 #include <queue>
 #include <stdexcept> // 用于抛出异常
 #include <thread>
-#include <type_traits>
 #include <vector>
 
 class ThreadPool // 线程池类声明
@@ -29,10 +28,10 @@ public:
 
   // 生产者往任务缓冲队列里塞新任务
   template <class F, class... Args>
-  auto enqueue(F &&f, Args &&...args) // f 是函数 ， args 是参数
+  auto enqueue(F &&f, Args &&...args)
+      -> std::future<typename std::result_of<F(Args...)>::type>
   {
-    // 1、推导这个任务做完之后，产出的是什么产品（返回值类型） using的作用是起别名
-    using return_type = std::invoke_result_t<F, Args...>;
+    using return_type = typename std::result_of<F(Args...)>::type;
 
     // 2、将函数和参数“封装打包”，变成一个不需要外部参数的void 函数(packaged_task)
     auto task = std::make_shared<std::packaged_task<                 // make_shared std::packaged_task不支持拷贝，只能移动，而 std::function<void()>定位就是可以被随处传递、随处复制的、可调用对象，所以用shared_ptr来管理这个任务对象的生命周期
@@ -57,7 +56,7 @@ public:
       // 线程池没有关闭，但任务缓冲队列满了，也不能再往里塞任务了
       if (tasks.size() >= config_.max_queue_size)
       {
-        throw std::runtime_error("系统繁忙：任务队列已满，请稍后再试！");
+        throw std::runtime_error("task queue is full");
       }
 
       // 往任务缓冲队列里塞一个任务
