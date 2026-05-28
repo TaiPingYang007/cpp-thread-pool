@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.16)
 project(thread_pool LANGUAGES CXX)
 
 # 指定项目使用 C++17
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 11)
 
 # 要求编译器必须支持 C++17
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
