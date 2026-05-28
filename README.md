@@ -44,6 +44,14 @@ cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
+### Run Demo
+
+```bash
+./build/bin/thread_pool_demo
+```
+
+演示场景包括：基本用法、多任务并发、异常处理、队列满拒绝。
+
 ## Self-Test Coverage
 
 当前自测主要覆盖：
@@ -79,12 +87,14 @@ ctest --test-dir build --output-on-failure
 ├── src
 │   └── ThreadPool.cpp
 └── test
-    └── main.cpp
+    ├── demo.cpp
+    └── test.cpp
 ```
 
 - `include/ThreadPool.h`: 线程池类声明和模板成员函数 `enqueue`
 - `src/ThreadPool.cpp`: 构造函数、worker 循环、`shutdown()` 和析构逻辑
-- `test/main.cpp`: 自测入口
+- `test/test.cpp`: 自测入口
+- `test/demo.cpp`: 场景演示（基本用法、多任务并发、异常处理、队列满）
 - `autobuild.sh`: 一键构建并运行测试
 
 ## Notes
