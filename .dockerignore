@@ -1,6 +1,0 @@
-.git
-.codex
-build
-build*/
-bin
-cmake-build-*
