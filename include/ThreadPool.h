@@ -81,8 +81,10 @@ private:
 
   // 2、任务缓冲队列 (Task Queue / Buffer)
   std::queue<std::function<void()>> tasks; // std::function<void()>定位就是可以被随处传递、随处复制的、可调用对象（函数对象、lambda表达式、函数指针等），并且这个可调用对象不需要参数，返回值也被忽略了（void)。
+  
   // 3、并发同步原语 (Synchronization Primitives)
-  std::mutex queue_mutex;            // 保护任务缓冲队列的互斥锁
+  std::mutex queue_mutex; // 保护任务缓冲队列的互斥锁
+  
   std::condition_variable condition; // 条件变量，用于通知消费者有新任务
 
   // 4、线程池的状态：如果线程池要关闭了（stop = true）, 通知所有的消费者停止工作
