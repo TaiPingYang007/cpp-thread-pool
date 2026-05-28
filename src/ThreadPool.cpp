@@ -88,27 +88,30 @@ ThreadPool::ThreadPool(const Config &config) : stop(false), config_(config)
 void ThreadPool::shutdown()
 {
     {
-        std::unique_lock<std::mutex> lock(queue_mutex);
-        stop = true; // 关闭线程池
+        std::lock_guard<std::mutex> lock(queue_mutex);
+
+        // 幂等：如果已经关闭，直接返回
+        if (stop)
+        {
+            return;
+        }
+
+        // 禁止 worker 线程内部调用 shutdown
+        for (auto &worker : workers)
+        {
+            if (worker.get_id() == std::this_thread::get_id())
+            {
+                throw std::runtime_error("shutdown() must not be called from a worker thread");
+            }
+        }
+
+        stop = true;
     }
 
-    condition.notify_all(); // 叫醒所有wait的消费者
+    condition.notify_all();
 
     for (auto &worker : workers)
     {
-        // 防御：如果是自己调用 shutdown，绝对不能 join 自己！
-        if (worker.get_id() == std::this_thread::get_id())
-        {
-            // 【终极解法：直接跳过自己】
-            // 1. 不抛异常，保证其他工人能被正常 join
-            // 2. 不 detach，不制造游魂
-            // 3. 为什么安全？因为当前工人（自己）在执行完这个 shutdown 后，
-            //    会正常返回到线程池的 while(!stop) 循环，发现 stop 是 true，
-            //    然后体面地自然死亡（线程结束）！
-            continue;
-        }
-
-        // 正常的工人，老老实实等他下班
         if (worker.joinable())
         {
             worker.join();
