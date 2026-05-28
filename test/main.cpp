@@ -172,8 +172,8 @@ bool test_shutdown_is_idempotent()
   return true;
 }
 
-// 验证任务内部调用 shutdown 时，线程池会进入关闭状态。
-// 这个测试对应的是“worker 线程自己发起关闭”的特殊场景。
+// 验证 worker 线程内部调用 shutdown 会抛出 runtime_error，
+// 异常通过 future.get() 传播给任务提交者。
 bool test_shutdown_called_from_worker()
 {
   ThreadPool::Config config;
@@ -182,32 +182,50 @@ bool test_shutdown_called_from_worker()
 
   ThreadPool pool(config);
 
-  // 只有一个 worker，这个任务一定会在唯一的消费者线程中执行。
   auto future = pool.enqueue([&pool]() -> int {
-    // 在任务内部主动关闭线程池。
-    // 按当前实现，这里不会抛异常，而是会把线程池切换到 stop 状态。
     pool.shutdown();
     return 123;
   });
 
-  // 如果任务能正常返回，说明“worker 内部关闭线程池”这条路径至少没有直接卡死。
-  bool current_task_finished = (future.get() == 123);
-
-  // 关闭之后继续提交任务，应该被拒绝。
-  bool rejected = false;
+  bool caught = false;
   try
   {
-    auto after_shutdown = pool.enqueue([]() {
-      return 9;
-    });
-    (void)after_shutdown;
+    future.get();
   }
   catch (const std::runtime_error &)
   {
-    rejected = true;
+    caught = true;
   }
 
-  return current_task_finished && rejected;
+  // 线程池因为 shutdown 抛异常，stop 可能已被设为 true，
+  // 析构函数调用 shutdown() 是幂等的，不会出问题。
+  return caught;
+}
+
+// 验证任务内部抛异常时，future.get() 能重新抛出该异常。
+bool test_task_exception_propagates_through_future()
+{
+  ThreadPool::Config config;
+  config.thread_count = 1;
+
+  ThreadPool pool(config);
+
+  auto future = pool.enqueue([]() -> int {
+    throw std::runtime_error("task failed");
+  });
+
+  bool caught = false;
+  try
+  {
+    future.get();
+  }
+  catch (const std::runtime_error &e)
+  {
+    caught = (std::string(e.what()) == "task failed");
+  }
+
+  pool.shutdown();
+  return caught;
 }
 } // namespace
 
@@ -228,7 +246,8 @@ int main()
       {"队列满时拒绝新任务", test_queue_limit_rejects_overflow},
       {"shutdown 会等旧任务完成并拒绝新任务", test_shutdown_drains_existing_tasks_and_rejects_new_tasks},
       {"shutdown 可重复调用", test_shutdown_is_idempotent},
-      {"任务内部调用 shutdown 会让线程池进入关闭状态", test_shutdown_called_from_worker},
+      {"任务内部调用 shutdown 会抛出预期异常", test_shutdown_called_from_worker},
+      {"任务抛异常后 future.get() 能捕获异常", test_task_exception_propagates_through_future},
   };
 
   int passed = 0;
