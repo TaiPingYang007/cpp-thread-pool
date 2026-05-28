@@ -1,6 +1,6 @@
 # Thread Pool
 
-一个基于 C++17 实现的固定大小线程池项目，重点演示任务提交、异步结果回传、有界队列和优雅关闭这几类后端并发基础能力。
+一个基于 C++11 实现的固定大小线程池项目，重点演示任务提交、异步结果回传、有界队列和优雅关闭这几类后端并发基础能力。
 
 ## Highlights
 
@@ -12,7 +12,7 @@
 
 ## Requirements
 
-- C++17 编译器 (g++ 7+, clang++ 5+, MSVC 2017+)
+- C++11 编译器 (g++ 4.8+, clang++ 3.3+, MSVC 2015+)
 - CMake 3.16+
 - 支持标准线程库的编译器
 
@@ -51,9 +51,19 @@ ctest --test-dir build --output-on-failure
 - 非法线程数配置
 - 非法队列容量配置
 - 队列满时拒绝新任务
-- `shutdown()` 等待历史任务完成
-- `shutdown()` 重复调用
-- worker 线程内部调用 `shutdown()`
+- `shutdown()` 等待已提交任务完成并拒绝新任务
+- `shutdown()` 可重复调用（幂等）
+- worker 线程内部调用 `shutdown()` 抛出异常
+- 任务抛异常后 `future.get()` 能捕获异常
+
+## shutdown 语义
+
+- 停止接收新任务（`enqueue` 抛异常）
+- 已入队任务继续执行完毕
+- 队列清空后 worker 线程退出
+- 调用线程等待所有 worker `join` 完成
+- 重复调用安全返回（幂等）
+- 禁止从 worker 线程内部调用，否则抛 `std::runtime_error`
 
 ## Project Layout
 
