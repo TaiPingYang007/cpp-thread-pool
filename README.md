@@ -2,7 +2,7 @@
 
 一个基于 C++17 实现的固定大小线程池项目，重点演示任务提交、异步结果回传、有界队列和优雅关闭这几类后端并发基础能力。
 
-## Highlights 
+## Highlights
 
 - 使用固定数量的 worker 线程复用执行任务，避免频繁创建和销毁线程。
 - 使用 `std::packaged_task` 和 `std::future` 返回异步任务结果。
@@ -12,25 +12,11 @@
 
 ## Requirements
 
-- C++17
+- C++17 编译器 (g++ 7+, clang++ 5+, MSVC 2017+)
 - CMake 3.16+
 - 支持标准线程库的编译器
 
 ## Quick Start
-
-### Local Build
-
-```bash
-cmake -S . -B build
-cmake --build build
-./build/bin/test_pool
-```
-
-### Run With CTest
-
-```bash
-ctest --test-dir build --output-on-failure
-```
 
 ### One-Click Build
 
@@ -44,22 +30,19 @@ ctest --test-dir build --output-on-failure
 - 编译 `test_pool`
 - 运行全部自测
 
-## Docker
+### Manual Build
 
 ```bash
-docker build -t thread_pool_env:v1 .
-docker run --rm thread_pool_env:v1
+cmake -S . -B build
+cmake --build build
+./build/bin/test_pool
 ```
 
-当前 `Dockerfile` 会在镜像构建阶段完成以下事情：
+### Run With CTest
 
-- 基于 `ubuntu:22.04` 准备构建环境
-- 安装 `build-essential` 和 `cmake`
-- 复制项目源码
-- 编译并执行 `ctest`
-- 在最终运行镜像里只保留可执行文件 `test_pool`
-
-这意味着别人拿到你的项目后，只要本机有 Docker，通常就可以用同样的命令得到一致的构建和运行环境。
+```bash
+ctest --test-dir build --output-on-failure
+```
 
 ## Self-Test Coverage
 
@@ -77,7 +60,6 @@ docker run --rm thread_pool_env:v1
 ```text
 .
 ├── CMakeLists.txt
-├── Dockerfile
 ├── README.md
 ├── autobuild.sh
 ├── docs
@@ -94,10 +76,8 @@ docker run --rm thread_pool_env:v1
 - `src/ThreadPool.cpp`: 构造函数、worker 循环、`shutdown()` 和析构逻辑
 - `test/main.cpp`: 自测入口
 - `autobuild.sh`: 一键构建并运行测试
-- `Dockerfile`: 容器化构建和运行入口
 
 ## Notes
 
 - 本地构建产物默认放在 `build/` 目录，不提交到仓库。
-- `.dockerignore` 会忽略 `.git`、`build/`、`bin/` 等不需要进入 Docker 构建上下文的内容。
 - 如果仓库路径发生变化，`autobuild.sh` 会自动清理失效的旧 CMake 缓存。
