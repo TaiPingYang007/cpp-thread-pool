@@ -6,158 +6,133 @@
 #include <string>
 #include <vector>
 
-// 基本用法：创建线程池、提交任务、拿结果、shutdown
-void demo_basic()
+// 模拟一个数据处理服务：
+// 启动线程池 -> 提交混合任务 -> 收集结果 -> 优雅关闭
+int main()
 {
-    std::cout << "=== demo_basic ===" << std::endl;
-
+    // ===== 1. 创建线程池 =====
     ThreadPool::Config config;
     config.thread_count = 4;
     config.max_queue_size = 100;
 
     ThreadPool pool(config);
+    std::cout << "[启动] 线程池已创建，4 个 worker 就绪\n\n";
 
-    auto f1 = pool.enqueue([] {
-        return 42;
-    });
+    // ===== 2. 提交一批混合任务 =====
+    std::vector<std::future<int>> int_results;
+    std::vector<std::future<std::string>> str_results;
 
-    auto f2 = pool.enqueue([](int a, int b) {
-        return a + b;
-    }, 10, 20);
-
-    std::cout << "f1.get() = " << f1.get() << std::endl;
-    std::cout << "f2.get() = " << f2.get() << std::endl;
-
-    pool.shutdown();
-    std::cout << std::endl;
-}
-
-// 多任务并发：提交一批任务，用 future 收集结果
-void demo_multiple_tasks()
-{
-    std::cout << "=== demo_multiple_tasks ===" << std::endl;
-
-    ThreadPool::Config config;
-    config.thread_count = 4;
-
-    ThreadPool pool(config);
-
-    std::vector<std::future<int>> futures;
-    futures.reserve(10);
-
-    for (int i = 0; i < 10; ++i)
+    // 2a. 计算任务：平方运算
+    for (int i = 1; i <= 5; ++i)
     {
-        futures.emplace_back(pool.enqueue([i] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            return i * i;
+        int_results.emplace_back(pool.enqueue([i] {
+            int result = i * i;
+            std::cout << "  [worker] " << i << "^2 = " << result << "\n";
+            return result;
         }));
     }
 
-    std::cout << "Results: ";
-    for (int i = 0; i < 10; ++i)
+    // 2b. 字符串处理任务：拼接问候语
+    for (int i = 1; i <= 3; ++i)
     {
-        std::cout << futures[i].get();
-        if (i < 9)
+        str_results.emplace_back(pool.enqueue([i] {
+            std::string msg = "Hello, task #" + std::to_string(i);
+            std::cout << "  [worker] 生成: " << msg << "\n";
+            return msg;
+        }));
+    }
+
+    // 2c. 延迟任务：模拟耗时操作
+    auto slow_future = pool.enqueue([]() -> int {
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+        std::cout << "  [worker] 慢任务完成\n";
+        return 999;
+    });
+
+    // 2d. 会失败的任务：展示异常传播
+    auto fail_future = pool.enqueue([]() -> int {
+        std::cout << "  [worker] 即将抛异常...\n";
+        throw std::runtime_error("database connection failed");
+    });
+
+    std::cout << "[提交] 10 个任务已入队\n\n";
+
+    // ===== 3. 收集结果 =====
+    int success_count = 0;
+    int fail_count = 0;
+
+    std::cout << "[结果] 计算任务:\n";
+    for (size_t i = 0; i < int_results.size(); ++i)
+    {
+        try
         {
-            std::cout << ", ";
+            int val = int_results[i].get();
+            std::cout << "  任务 " << (i + 1) << " 成功: " << val << "\n";
+            ++success_count;
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "  任务 " << (i + 1) << " 失败: " << e.what() << "\n";
+            ++fail_count;
         }
     }
-    std::cout << std::endl;
 
-    pool.shutdown();
-    std::cout << std::endl;
-}
+    std::cout << "[结果] 字符串任务:\n";
+    for (size_t i = 0; i < str_results.size(); ++i)
+    {
+        try
+        {
+            std::string val = str_results[i].get();
+            std::cout << "  任务 " << (i + 1) << " 成功: " << val << "\n";
+            ++success_count;
+        }
+        catch (const std::exception &e)
+        {
+            std::cout << "  任务 " << (i + 1) << " 失败: " << e.what() << "\n";
+            ++fail_count;
+        }
+    }
 
-// 异常处理：任务内部抛异常，future.get() 捕获
-void demo_exception()
-{
-    std::cout << "=== demo_exception ===" << std::endl;
-
-    ThreadPool::Config config;
-    config.thread_count = 2;
-
-    ThreadPool pool(config);
-
-    auto f1 = pool.enqueue([] {
-        return 100;
-    });
-
-    auto f2 = pool.enqueue([]() -> int {
-        throw std::runtime_error("something went wrong");
-    });
-
-    std::cout << "f1.get() = " << f1.get() << std::endl;
-
+    // 慢任务
     try
     {
-        f2.get();
+        int val = slow_future.get();
+        std::cout << "[结果] 慢任务成功: " << val << "\n";
+        ++success_count;
+    }
+    catch (const std::exception &e)
+    {
+        std::cout << "[结果] 慢任务失败: " << e.what() << "\n";
+        ++fail_count;
+    }
+
+    // 失败任务
+    try
+    {
+        fail_future.get();
     }
     catch (const std::runtime_error &e)
     {
-        std::cout << "f2.get() caught: " << e.what() << std::endl;
+        std::cout << "[结果] 预期失败: " << e.what() << "\n";
+        ++fail_count;
     }
 
+    std::cout << "\n[统计] 成功: " << success_count << ", 失败: " << fail_count << "\n\n";
+
+    // ===== 4. 优雅关闭 =====
     pool.shutdown();
-    std::cout << std::endl;
-}
+    std::cout << "[关闭] shutdown 完成，所有 worker 已退出\n\n";
 
-// 队列满：提交到队列满时 enqueue 抛异常
-void demo_queue_full()
-{
-    std::cout << "=== demo_queue_full ===" << std::endl;
-
-    ThreadPool::Config config;
-    config.thread_count = 1;
-    config.max_queue_size = 1;
-
-    ThreadPool pool(config);
-
-    std::promise<void> gate;
-    std::shared_future<void> ready = gate.get_future().share();
-
-    std::atomic<bool> first_started{false};
-
-    auto f1 = pool.enqueue([&] {
-        first_started = true;
-        ready.wait();
-        return 1;
-    });
-
-    while (!first_started.load())
-    {
-        std::this_thread::yield();
-    }
-
-    auto f2 = pool.enqueue([] { return 2; });
-
-    bool caught = false;
+    // ===== 5. 关闭后尝试提交 =====
     try
     {
-        auto f3 = pool.enqueue([] { return 3; });
+        auto f = pool.enqueue([] { return 0; });
     }
     catch (const std::runtime_error &e)
     {
-        caught = true;
-        std::cout << "enqueue rejected: " << e.what() << std::endl;
+        std::cout << "[拒绝] shutdown 后 enqueue: " << e.what() << "\n";
     }
 
-    gate.set_value();
-
-    std::cout << "f1.get() = " << f1.get() << std::endl;
-    std::cout << "f2.get() = " << f2.get() << std::endl;
-    std::cout << "queue full rejected: " << (caught ? "yes" : "no") << std::endl;
-
-    pool.shutdown();
-    std::cout << std::endl;
-}
-
-int main()
-{
-    demo_basic();
-    demo_multiple_tasks();
-    demo_exception();
-    demo_queue_full();
-
-    std::cout << "All demos completed." << std::endl;
+    std::cout << "\nDemo 完成。\n";
     return 0;
 }
