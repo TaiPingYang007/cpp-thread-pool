@@ -27,7 +27,6 @@ ThreadPool::ThreadPool(const Config &config) : stop(false), config_(config)
             while (true)
             {
                 std::function<void()> task; //准备一个任务，来接任务缓冲队列中的任务
-
                 {
                     // === 临界区开始：准备从任务缓冲队列拿任务，先加锁 ===
                     std::unique_lock<std::mutex> lock (this->queue_mutex); //上锁，保护任务缓冲队列
